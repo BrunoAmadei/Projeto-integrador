@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Atividades Físicas Gratuitas para Idosos</title>
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background: #f9f9f9;
+    color: #222;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  header {
+    background: #4caf50;
+    color: white;
+    padding: 15px 20px;
+    font-size: 1.5rem;
+    text-align: center;
+  }
+  #filters {
+    background: white;
+    padding: 10px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: center;
+    font-size: 1.1rem;
+  }
+  #filters label {
+    cursor: pointer;
+    user-select: none;
+  }
+  #filters input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  #search-container {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+  }
+  #search-input {
+    font-size: 1rem;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    width: 220px;
+  }
+  #reset-btn {
+    padding: 6px 10px;
+    font-size: 1rem;
+    background: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  #container {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+  #map {
+    flex: 2;
+    height: 100%;
+  }
+  #details {
+    flex: 1;
+    background: white;
+    padding: 15px 20px;
+    overflow-y: auto;
+    border-left: 2px solid #ddd;
+    font-size: 1.1rem;
+  }
+  #details h2 {
+    margin-top: 0;
+    color: #4caf50;
+  }
+  #details p {
+    line-height: 1.4;
+  }
+  @media (max-width: 768px) {
+    #container {
+      flex-direction: column;
+    }
+    #map {
+      height: 50vh;
+      flex: none;
+    }
+    #details {
+      border-left: none;
+      border-top: 2px solid #ddd;
+      flex: none;
+      height: 40vh;
+    }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  Locais Gratuitos para Atividades Físicas - Idosos
+</header>
+
+<div id="filters">
+  <label><input type="checkbox" id="filter-ginastica" checked /> Ginástica Gratuita</label>
+  <label><input type="checkbox" id="filter-academia" checked /> Academia ao Ar Livre</label>
+  <div id="search-container">
+    <input type="text" id="search-input" placeholder="Buscar por nome, bairro, cidade ou estado..." />
+    <button id="reset-btn">Resetar</button>
+  </div>
+</div>
+
+<div id="container">
+  <div id="map"></div>
+  <div id="details">
+    <h2>Detalhes do Local</h2>
+    <p>Clique em um marcador no mapa para ver informações aqui.</p>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  // Dados dos locais com cidade e estado para busca dinâmica
+  const locais = [
+    {
+      id: 1,
+      nome: "Praça Central - Academia ao Ar Livre",
+      tipo: "academia",
+      lat: -23.55052,
+      lng: -46.633308,
+      descricao: "Equipamentos para musculação e alongamento ao ar livre. Aberto das 6h às 20h.",
+      bairro: "Centro",
+      cidade: "São Paulo",
+      estado: "SP"
+    },
+    {
+      id: 2,
+      nome: "Ginástica Comunitária - Parque da Cidade",
+      tipo: "ginastica",
+      lat: -23.551,
+      lng: -46.634,
+      descricao: "Aulas gratuitas de ginástica para idosos às terças e quintas, das 9h às 10h.",
+      bairro: "Parque da Cidade",
+      cidade: "São Paulo",
+      estado: "SP"
+    },
+    {
+      id: 3,
+      nome: "Academia ao Ar Livre - Praça das Flores",
+      tipo: "academia",
+      lat: -23.555,
+      lng: -46.635,
+      descricao: "Equipamentos simples para exercícios funcionais. Local tranquilo e arborizado.",
+      bairro: "Jardim das Flores",
+      cidade: "São Paulo",
+      estado: "SP"
+    },
+    {
+      id: 4,
+      nome: "Ginástica ao Ar Livre - Praça da Amizade",
+      tipo: "ginastica",
+      lat: -23.552,
+      lng: -46.630,
+      descricao: "Aulas gratuitas para idosos aos sábados, das 8h às 9h30.",
+      bairro: "Vila Amizade",
+      cidade: "São Paulo",
+      estado: "SP"
+    },
+    {
+      id: 5,
+      nome: "Praça Santa Terezinha - Academia ao Ar Livre",
+      tipo: "academia",
+      lat: -23.0336,
+      lng: -45.556,
+      descricao: "Academia ao ar livre em Taubaté. Aberto 24 horas.",
+      bairro: "Centro",
+      cidade: "Taubaté",
+      estado: "SP"
+    }
+  ];
+
+  const map = L.map('map').setView([-23.55, -46.63], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 19,
+  }).addTo(map);
+
+  let markers = [];
+
+  function showDetails(local) {
+    const div = document.getElementById('details');
+    div.innerHTML = `
+      <h2>${local.nome}</h2>
+      <p><strong>Tipo:</strong> ${local.tipo === 'academia' ? 'Academia ao Ar Livre' : 'Ginástica Gratuita'}</p>
+      <p><strong>Bairro:</strong> ${local.bairro}</p>
+      <p><strong>Cidade:</strong> ${local.cidade}, ${local.estado}</p>
+      <p>${local.descricao}</p>
+    `;
+  }
+
+  function clearMarkers() {
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+  }
+
+  function updateMarkers() {
+    clearMarkers();
+    const showGinastica = document.getElementById('filter-ginastica').checked;
+    const showAcademia = document.getElementById('filter-academia').checked;
+    const searchTerm = document.getElementById('search-input').value.toLowerCase();
+
+    const locaisFiltrados = locais.filter(local => {
+      const tipoOk = (local.tipo === 'ginastica' && showGinastica) || (local.tipo === 'academia' && showAcademia);
+      const searchOk = 
+        local.nome.toLowerCase().includes(searchTerm) ||
+        local.bairro.toLowerCase().includes(searchTerm) ||
+        local.cidade.toLowerCase().includes(searchTerm) ||
+        local.estado.toLowerCase().includes(searchTerm);
+      return tipoOk && searchOk;
+    });
+
+    if (locaisFiltrados.length === 0) {
+      document.getElementById('details').innerHTML = "<h2>Sem resultados</h2><p>Nenhum local corresponde aos filtros ou busca.</p>";
+    }
+
+    locaisFiltrados.forEach(local => {
+      const marker = L.marker([local.lat, local.lng]).addTo(map);
+      marker.on('click', () => showDetails(local));
+      markers.push(marker);
+    });
+
+    // Ajustar zoom dinamicamente
+    if (locaisFiltrados.length > 0) {
+      const latitudes = locaisFiltrados.map(l => l.lat);
+      const longitudes = locaisFiltrados.map(l => l.lng);
+      const avgLat = latitudes.reduce((a,b)=>a+b,0) / latitudes.length;
+      const avgLng = longitudes.reduce((a,b)=>a+b,0) / longitudes.length;
+      map.setView([avgLat, avgLng], 14);
+    }
+  }
+
+  document.getElementById('filter-ginastica').addEventListener('change', () => {
+    localStorage.setItem('filter-ginastica', document.getElementById('filter-ginastica').checked);
+    updateMarkers();
+  });
+  document.getElementById('filter-academia').addEventListener('change', () => {
+    localStorage.setItem('filter-academia', document.getElementById('filter-academia').checked);
+    updateMarkers();
+  });
+  document.getElementById('search-input').addEventListener('input', updateMarkers);
+
+  // Botão para resetar busca e filtros
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    document.getElementById('search-input').value = '';
+    document.getElementById('filter-ginastica').checked = true;
+    document.getElementById('filter-academia').checked = true;
+    localStorage.setItem('filter-ginastica', true);
+    localStorage.setItem('filter-academia', true);
+    updateMarkers();
+  });
+
+  // Recuperar filtros do localStorage
+  const filterGinasticaStored = localStorage.getItem('filter-ginastica');
+  const filterAcademiaStored = localStorage.getItem('filter-academia');
+  if (filterGinasticaStored !== null) document.getElementById('filter-ginastica').checked = filterGinasticaStored === 'true';
+  if (filterAcademiaStored !== null) document.getElementById('filter-academia').checked = filterAcademiaStored === 'true';
+
+  updateMarkers();
+</script>
+
+</body>
+</html>
